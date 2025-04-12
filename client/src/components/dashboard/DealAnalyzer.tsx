@@ -175,11 +175,18 @@ export default function DealAnalyzer() {
                 <FormField
                   control={form.control}
                   name="currentPrice"
-                  render={({ field }) => (
+                  render={({ field: { onChange, ...field } }) => (
                     <FormItem>
                       <FormLabel>Current Price ($)*</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="49.99" {...field} />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="49.99" 
+                          onChange={(e) => onChange(e.target.valueAsNumber)} 
+                          {...field}
+                          value={field.value || ''}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
