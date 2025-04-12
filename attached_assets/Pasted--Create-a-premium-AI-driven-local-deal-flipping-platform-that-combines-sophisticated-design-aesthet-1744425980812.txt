@@ -1,0 +1,138 @@
+"Create a premium, AI-driven local deal flipping platform that combines sophisticated design aesthetics inspired by Pentagram's minimalist approach with powerful deal-finding and reselling capabilities. The platform should embody professional excellence while maintaining user-friendly functionality."
+<designPrinciples>
+    <visualStyle>
+        • Primary color palette: Deep navy (#1C1C28), Warm grey (#F5F5F5), Accent gold (#FFB800)
+        • Secondary palette: Soft teal (#4A6670), Muted coral (#FF7F6B)
+        • Typography: Primary - Neue Haas Grotesk Display, Secondary - Söhne
+        • Grid system: 12-column responsive layout with 1440px max-width
+        • Spacing system: 8px base unit with geometric progression
+    </visualStyle>
+
+    <uiElements>
+        • Floating cards with subtle shadows (4px blur, 30% opacity)
+        • Micro-interactions with smooth transitions (0.3s ease-in-out)
+        • Custom cursor states for interactive elements
+        • Animated data visualizations using D3.js
+        • Skeleton loading states with subtle pulse animations
+    </uiElements>
+</designPrinciples>
+
+<technicalArchitecture>
+    <frontend>
+        • Next.js 13 with App Router for optimal performance
+        • TypeScript for type safety
+        • Tailwind CSS for styling
+        • Framer Motion for animations
+        • React Query for state management
+        • WebSocket integration for real-time updates
+    </frontend>
+
+    <backend>
+        • Node.js with Express.js
+        • PostgreSQL for primary database
+        • Redis for caching
+        • ElasticSearch for deal searching
+        • Python for AI/ML processing
+        • Docker containerization
+    </backend>
+
+    <ai_components>
+        • TensorFlow for price prediction models
+        • NLP processing for listing optimization
+        • Computer vision for image analysis
+        • Recommendation engine using collaborative filtering
+        • Automated market analysis system
+    </ai_components>
+</technicalArchitecture>
+
+<coreFunctionalities>
+    <dealScout>
+        • Real-time web scraping of major marketplaces
+        • Image recognition for product identification
+        • Price history analysis and trend prediction
+        • Automated deal scoring system (0-100)
+        • Custom alert system based on user preferences
+    </dealScout>
+
+    <resaleCalculator>
+        • Dynamic pricing algorithm
+        • Fee structure integration (marketplace, shipping, taxes)
+        • Profit margin visualization
+        • ROI prediction model
+        • Competition analysis
+    </resaleCalculator>
+
+    <listingAutomator>
+        • Multi-platform listing synchronization
+        • AI-powered product description generation
+        • Automated image enhancement
+        • SEO optimization for listings
+        • Bulk listing capabilities
+    </listingAutomator>
+
+    <buyerLocator>
+        • Geographic heat mapping of demand
+        • Buyer behavior analysis
+        • Automated buyer matching
+        • Market demand forecasting
+        • Cross-platform buyer tracking
+    </buyerLocator>
+
+    <inventoryTracker>
+        • Real-time inventory management
+        • Automated reorder suggestions
+        • Storage location optimization
+        • Inventory aging alerts
+        • Performance analytics dashboard
+    </inventoryTracker>
+</coreFunctionalities>
+
+<userExperience>
+    <onboarding>
+        • Interactive tutorial system
+        • Personalized goal setting
+        • Market preference configuration
+        • Initial AI calibration process
+        • Success metrics establishment
+    </onboarding>
+
+    <dashboard>
+        • Real-time profit/loss tracking
+        • Deal opportunity feed
+        • Active listing status
+        • Inventory health metrics
+        • Market trend visualizations
+    </dashboard>
+</userExperience>
+
+<security>
+    • OAuth 2.0 authentication
+    • End-to-end encryption for sensitive data
+    • Rate limiting for API calls
+    • Fraud detection system
+    • Regular security audits
+</security>
+
+<deployment>
+    • AWS infrastructure with auto-scaling
+    • CDN integration for global performance
+    • Automated CI/CD pipeline
+    • Performance monitoring
+    • Disaster recovery system
+</deployment>
+
+<qualityAssurance>
+    • Automated testing suite
+    • Performance benchmarking
+    • Cross-browser compatibility
+    • Mobile responsiveness
+    • Accessibility compliance (WCAG 2.1)
+</qualityAssurance>
+
+<deliverables>
+    • Source code with documentation
+    • API documentation
+    • Deployment instructions
+    • User manual
+    • Administrative dashboard
+</deliverables>
