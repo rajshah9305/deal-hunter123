@@ -1,461 +1,471 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { usePredictPriceTrend, PricePrediction as PricePredictionType } from "@/hooks/use-ai";
-import { Loader2Icon, XCircle, Sparkles, TrendingUpIcon, TrendingDownIcon, MinusIcon } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { usePricePrediction, type PricePredictionInput, type PricePredictionOutput } from "@/hooks/use-ai";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
+} from "@/components/ui/card";
+import { 
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage 
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import {
+  TrendingUp, TrendingDown, Clock, DollarSign, Calendar, Gauge, AlertTriangle, 
+  LineChart
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
-  TooltipProps
+  ReferenceLine
 } from "recharts";
 
-// Using PricePredictionType imported from use-ai.ts
+// Form schema
+const formSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters"),
+  category: z.string().optional(),
+  currentPrice: z.string().min(1, "Current price is required").transform(val => parseFloat(val)),
+  // Historical prices are added dynamically
+});
 
 export default function PricePrediction() {
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    title: "",
-    category: "",
-    currentPrice: "",
+  const [prediction, setPrediction] = useState<PricePredictionOutput | null>(null);
+  const [historicalPrices, setHistoricalPrices] = useState<
+    { date: string; price: number; source?: string }[]
+  >([]);
+  const [newPrice, setNewPrice] = useState({ date: "", price: "", source: "" });
+  const pricePredictionMutation = usePricePrediction();
+
+  // Form setup
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      category: "",
+      currentPrice: "",
+    },
   });
-  const [showForm, setShowForm] = useState(false);
 
-  const predictPriceTrendMutation = usePredictPriceTrend();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // Add a historical price entry
+  const addHistoricalPrice = () => {
+    if (newPrice.date && newPrice.price) {
+      const priceValue = parseFloat(newPrice.price);
+      if (!isNaN(priceValue)) {
+        setHistoricalPrices([
+          ...historicalPrices,
+          { 
+            date: newPrice.date, 
+            price: priceValue,
+            source: newPrice.source || undefined
+          }
+        ]);
+        setNewPrice({ date: "", price: "", source: "" });
+      }
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Remove a historical price entry
+  const removeHistoricalPrice = (index: number) => {
+    setHistoricalPrices(historicalPrices.filter((_, i) => i !== index));
+  };
 
-    // Validate input
-    if (!formData.title || !formData.currentPrice) {
+  // Handle form submission
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const predictionInput: PricePredictionInput = {
+        title: values.title,
+        category: values.category,
+        currentPrice: values.currentPrice,
+        historicalPrices: historicalPrices.length > 0 ? historicalPrices : undefined,
+      };
+      
+      const result = await pricePredictionMutation.mutateAsync(predictionInput);
+      
+      setPrediction(result);
       toast({
-        title: "Missing information",
-        description: "Please provide at least the item title and current price.",
+        title: "Price prediction complete",
+        description: "Price trend prediction has been generated.",
+      });
+    } catch (error) {
+      console.error("Error predicting price trend:", error);
+      toast({
+        title: "Prediction failed",
+        description: "Failed to predict price trend. Please try again.",
         variant: "destructive",
       });
-      return;
     }
+  }
 
-    // Run prediction
-    predictPriceTrendMutation.mutate(
-      {
-        title: formData.title,
-        category: formData.category || undefined,
-        currentPrice: parseFloat(formData.currentPrice),
-        historicalPrices: [
-          { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), price: parseFloat(formData.currentPrice) * 0.9 },
-          { date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(), price: parseFloat(formData.currentPrice) * 0.95 },
-          { date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), price: parseFloat(formData.currentPrice) * 0.98 },
-          { date: new Date().toISOString(), price: parseFloat(formData.currentPrice) }
-        ]
-      },
-      {
-        onSuccess: (data) => {
-          toast({
-            title: "Prediction complete",
-            description: "Price trend prediction has been completed successfully.",
-          });
-        },
-        onError: (error) => {
-          toast({
-            title: "Prediction failed",
-            description: "Could not predict price trends. Please try again.",
-            variant: "destructive",
-          });
-        },
-      }
+  // Helper function for rendering the confidence score
+  const renderConfidenceScore = (score: number) => {
+    let color = "bg-red-500";
+    if (score >= 70) color = "bg-green-500";
+    else if (score >= 40) color = "bg-yellow-500";
+    
+    return (
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <span className="text-sm font-medium">Confidence Score</span>
+          <span className="text-sm font-medium">{score}%</span>
+        </div>
+        <Progress value={score} className={`h-2 ${color}`} />
+      </div>
     );
   };
 
-  const formatChartData = (prediction: PricePredictionType) => {
+  // Generate chart data for the price prediction
+  const generateChartData = () => {
     if (!prediction) return [];
-
-    // Start with the historical data
-    const today = new Date();
-    const historicalData = [
-      { 
-        day: -30, 
-        date: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        price: parseFloat(formData.currentPrice) * 0.9, 
-        isPrediction: false 
+    
+    // Combine historical data with predictions
+    const chartData = [
+      // Start with current price
+      {
+        name: "Current",
+        price: form.getValues().currentPrice,
+        type: "actual"
       },
-      { 
-        day: -20, 
-        date: new Date(today.getTime() - 20 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        price: parseFloat(formData.currentPrice) * 0.95, 
-        isPrediction: false 
+      // Add prediction for 30 days
+      {
+        name: "30 Days",
+        price: prediction.projectedPrice30Days,
+        type: "predicted"
       },
-      { 
-        day: -10, 
-        date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        price: parseFloat(formData.currentPrice) * 0.98, 
-        isPrediction: false 
-      },
-      { 
-        day: 0, 
-        date: today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        price: parseFloat(formData.currentPrice), 
-        isPrediction: false 
-      },
+      // Add prediction for 90 days
+      {
+        name: "90 Days",
+        price: prediction.projectedPrice90Days,
+        type: "predicted"
+      }
     ];
-
-    // Add the predictions
-    const predictionData = prediction.futurePrices.map((p: { daysFromNow: number; predictedPrice: number; trend: "up" | "down" | "stable" }) => ({
-      day: p.daysFromNow,
-      date: new Date(today.getTime() + p.daysFromNow * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      price: p.predictedPrice,
-      trend: p.trend,
-      isPrediction: true
-    }));
-
-    return [...historicalData, ...predictionData];
-  };
-
-  const getTrendIcon = (trend: string) => {
-    switch(trend) {
-      case 'up':
-        return <TrendingUpIcon className="h-5 w-5 text-green-500" />;
-      case 'down':
-        return <TrendingDownIcon className="h-5 w-5 text-red-500" />;
-      default:
-        return <MinusIcon className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getConfidenceLevelColor = (level: number) => {
-    if (level >= 75) return 'text-green-500';
-    if (level >= 50) return 'text-yellow-600';
-    return 'text-red-500';
-  };
-
-  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white p-2 border border-gray-200 rounded shadow text-sm">
-          <p className="font-bold">{data.date}</p>
-          <p className="text-[#1C1C28]">Price: ${data.price.toFixed(2)}</p>
-          {data.isPrediction && (
-            <p className="text-xs italic">Predicted</p>
-          )}
-        </div>
-      );
-    }
-    return null;
+    
+    return chartData;
   };
 
   return (
-    <motion.div
-      className="bg-white rounded-xl shadow-md p-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Sparkles className="h-6 w-6 text-[#FFB800] mr-2" />
-          <h2 className="text-lg font-display font-bold text-[#1C1C28]">AI Price Prediction</h2>
-        </div>
-        {!showForm && !predictPriceTrendMutation.data && (
-          <button
-            className="px-4 py-2 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all"
-            onClick={() => setShowForm(true)}
-          >
-            Predict Price Trend
-          </button>
-        )}
-        {showForm && !predictPriceTrendMutation.data && (
-          <button
-            className="text-[#2D2D3A] hover:text-[#1C1C28]"
-            onClick={() => setShowForm(false)}
-          >
-            <XCircle className="h-6 w-6" />
-          </button>
-        )}
-      </div>
-
-      {!showForm && !predictPriceTrendMutation.data && (
-        <div className="text-center py-10">
-          <p className="text-[#2D2D3A] mb-6">
-            Our AI can predict price trends to help you determine the best time to buy or sell.
-            <br />
-            Click "Predict Price Trend" to get started.
-          </p>
-          <div className="flex justify-center">
-            <button
-              className="px-6 py-3 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all"
-              onClick={() => setShowForm(true)}
-            >
-              Predict Price Trend
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showForm && !predictPriceTrendMutation.data && (
-        <motion.form
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          transition={{ duration: 0.3 }}
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Item Title*
-              </label>
-              <input
-                id="title"
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Price Prediction Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LineChart className="h-5 w-5" />
+            Price Trend Prediction
+          </CardTitle>
+          <CardDescription>
+            Predict future price trends for products with AI
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
                 name="title"
-                type="text"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-                placeholder="e.g. Nike Air Jordan 1 Retro"
-                required
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product Title*</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Apple iPhone 13 Pro Max 256GB" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Category
-              </label>
-              <select
-                id="category"
+              
+              <FormField
+                control={form.control}
                 name="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-              >
-                <option value="">Select Category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Sneakers">Sneakers</option>
-                <option value="Apparel">Apparel</option>
-                <option value="Home Goods">Home Goods</option>
-                <option value="Collectibles">Collectibles</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="currentPrice" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-              Current Price ($)*
-            </label>
-            <input
-              id="currentPrice"
-              name="currentPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.currentPrice}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-              placeholder="0.00"
-              required
-            />
-          </div>
-
-          <div className="pt-4 flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 border border-gray-300 text-[#2D2D3A] rounded-lg hover:bg-gray-100 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={predictPriceTrendMutation.isPending}
-              className="px-4 py-2 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all flex items-center disabled:opacity-70"
-            >
-              {predictPriceTrendMutation.isPending && (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {predictPriceTrendMutation.isPending ? "Predicting..." : "Predict Price Trend"}
-            </button>
-          </div>
-        </motion.form>
-      )}
-
-      {predictPriceTrendMutation.isPending && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2Icon className="h-10 w-10 text-[#FFB800] animate-spin mb-4" />
-          <p className="text-[#2D2D3A] text-center">
-            Analyzing market data with AI...
-            <br />
-            <span className="text-sm">This may take a few moments</span>
-          </p>
-        </div>
-      )}
-
-      {predictPriceTrendMutation.isError && (
-        <div className="text-center py-6 text-red-500">
-          <XCircle className="h-10 w-10 mx-auto mb-2" />
-          <p>Price prediction failed. Please try again.</p>
-          <button
-            onClick={() => predictPriceTrendMutation.reset()}
-            className="mt-4 px-4 py-2 bg-[#1C1C28] text-white rounded-lg hover:bg-[#2D2D3A] transition-all"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {predictPriceTrendMutation.isSuccess && predictPriceTrendMutation.data && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6"
-        >
-          <div className="flex justify-between mb-4">
-            <h3 className="font-bold text-[#1C1C28]">{formData.title}</h3>
-            <div className="flex items-center">
-              {getTrendIcon(predictPriceTrendMutation.data.overallTrend)}
-              <span className={`ml-1 text-sm font-medium ${
-                predictPriceTrendMutation.data.overallTrend === 'up' ? 'text-green-500' : 
-                predictPriceTrendMutation.data.overallTrend === 'down' ? 'text-red-500' : 
-                'text-gray-500'
-              }`}>
-                {predictPriceTrendMutation.data.overallTrend === 'up' ? 'Upward Trend' : 
-                 predictPriceTrendMutation.data.overallTrend === 'down' ? 'Downward Trend' : 
-                 'Stable Trend'}
-              </span>
-            </div>
-          </div>
-          
-          <div className="h-80 w-full mb-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={formatChartData(predictPriceTrendMutation.data)}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(209, 213, 219, 0.3)" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={{ stroke: 'rgba(209, 213, 219, 0.5)' }}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  axisLine={{ stroke: 'rgba(209, 213, 219, 0.5)' }}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine x={0} stroke="rgba(75, 85, 99, 0.5)" strokeDasharray="3 3" />
-                <Line 
-                  type="monotone" 
-                  dataKey="price" 
-                  stroke="#FFB800" 
-                  strokeWidth={2}
-                  dot={(props: any) => {
-                    const { cx, cy, payload } = props;
-                    if (payload.isPrediction) {
-                      return (
-                        <circle 
-                          cx={cx} 
-                          cy={cy} 
-                          r={4} 
-                          fill="white" 
-                          stroke={payload.trend === 'up' ? '#10B981' : 
-                                   payload.trend === 'down' ? '#EF4444' : 
-                                   '#6B7280'} 
-                          strokeWidth={2} 
-                        />
-                      );
-                    }
-                    return (
-                      <circle 
-                        cx={cx} 
-                        cy={cy} 
-                        r={4} 
-                        fill="#FFB800" 
-                        stroke="white" 
-                        strokeWidth={2} 
-                      />
-                    );
-                  }}
-                  activeDot={{ r: 6, fill: "#FFB800", stroke: "white", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            {predictPriceTrendMutation.data.futurePrices.map((prediction, index) => (
-              <div key={index} className="bg-[#F5F5F5] rounded-lg p-3">
-                <p className="text-sm text-[#2D2D3A] font-medium">
-                  {prediction.daysFromNow === 7 ? '7 days' : 
-                   prediction.daysFromNow === 14 ? '14 days' : 
-                   '30 days'}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Electronics, Clothing, Toys" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Product category helps improve prediction accuracy
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="currentPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Price ($)*</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="49.99" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <Separator className="my-4" />
+              
+              <div>
+                <h3 className="text-sm font-medium mb-2">Historical Prices (Optional)</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Add previous prices to improve prediction accuracy
                 </p>
-                <div className="flex items-center mt-1">
-                  <p className={`text-xl font-bold ${
-                    prediction.trend === 'up' ? 'text-green-500' : 
-                    prediction.trend === 'down' ? 'text-red-500' : 
-                    'text-[#1C1C28]'
-                  }`}>
-                    ${prediction.predictedPrice.toFixed(2)}
-                  </p>
-                  {getTrendIcon(prediction.trend)}
+                
+                <div className="space-y-4">
+                  {/* Historical price inputs */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Input
+                        type="date"
+                        placeholder="Date"
+                        value={newPrice.date}
+                        onChange={(e) => setNewPrice({ ...newPrice, date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price ($)"
+                        value={newPrice.price}
+                        onChange={(e) => setNewPrice({ ...newPrice, price: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Source (optional)"
+                        value={newPrice.source}
+                        onChange={(e) => setNewPrice({ ...newPrice, source: e.target.value })}
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={addHistoricalPrice}
+                        disabled={!newPrice.date || !newPrice.price}
+                        className="shrink-0"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Display added historical prices */}
+                  {historicalPrices.length > 0 && (
+                    <div className="border rounded-md p-3">
+                      <h4 className="text-sm font-medium mb-2">Added Historical Prices</h4>
+                      <div className="space-y-2">
+                        {historicalPrices.map((price, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <div>
+                              <span className="font-medium">{price.date}</span>: ${price.price.toFixed(2)}
+                              {price.source && <span className="text-muted-foreground ml-2">({price.source})</span>}
+                            </div>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removeHistoricalPrice(index)}
+                              className="h-6 w-6 p-0"
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-          
-          <div className="mb-4">
-            <div className="flex items-center mb-2">
-              <h4 className="font-medium text-[#1C1C28]">AI Confidence Level</h4>
-              <span className={`ml-2 text-sm font-medium ${getConfidenceLevelColor(predictPriceTrendMutation.data.confidenceLevel)}`}>
-                {predictPriceTrendMutation.data.confidenceLevel}%
-              </span>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={pricePredictionMutation.isPending}
+              >
+                {pricePredictionMutation.isPending ? "Predicting..." : "Predict Price Trend"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* Prediction Results */}
+      {prediction && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Price Prediction Results</CardTitle>
+            <CardDescription>
+              AI-powered price trend prediction for {form.getValues().title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Price projection chart */}
+            <div className="h-64 border p-4 rounded-lg">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsLineChart
+                  data={generateChartData()}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis 
+                    domain={['auto', 'auto']}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`$${Number(value).toFixed(2)}`, "Price"]}
+                  />
+                  <ReferenceLine 
+                    y={form.getValues().currentPrice} 
+                    stroke="#888" 
+                    strokeDasharray="3 3"
+                    label="Current"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke="#8884d8" 
+                    activeDot={{ r: 8 }}
+                    strokeWidth={2}
+                  />
+                </RechartsLineChart>
+              </ResponsiveContainer>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className={`h-full ${
-                  predictPriceTrendMutation.data.confidenceLevel >= 75 ? 'bg-green-500' : 
-                  predictPriceTrendMutation.data.confidenceLevel >= 50 ? 'bg-yellow-500' : 
-                  'bg-red-500'
-                }`}
-                style={{ width: `${predictPriceTrendMutation.data.confidenceLevel}%` }}
-              />
+
+            {/* Main projections */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="border shadow-none">
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">30-Day Projection</p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-2xl font-bold">${prediction.projectedPrice30Days.toFixed(2)}</p>
+                      {prediction.priceDirection === "up" ? (
+                        <span className="text-green-500 flex items-center">
+                          <TrendingUp className="h-4 w-4 mr-1" />
+                          {(((prediction.projectedPrice30Days - form.getValues().currentPrice) / form.getValues().currentPrice) * 100).toFixed(1)}%
+                        </span>
+                      ) : prediction.priceDirection === "down" ? (
+                        <span className="text-red-500 flex items-center">
+                          <TrendingDown className="h-4 w-4 mr-1" />
+                          {(((form.getValues().currentPrice - prediction.projectedPrice30Days) / form.getValues().currentPrice) * 100).toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">Stable</span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border shadow-none">
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">90-Day Projection</p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-2xl font-bold">${prediction.projectedPrice90Days.toFixed(2)}</p>
+                      {prediction.priceDirection === "up" ? (
+                        <span className="text-green-500 flex items-center">
+                          <TrendingUp className="h-4 w-4 mr-1" />
+                          {(((prediction.projectedPrice90Days - form.getValues().currentPrice) / form.getValues().currentPrice) * 100).toFixed(1)}%
+                        </span>
+                      ) : prediction.priceDirection === "down" ? (
+                        <span className="text-red-500 flex items-center">
+                          <TrendingDown className="h-4 w-4 mr-1" />
+                          {(((form.getValues().currentPrice - prediction.projectedPrice90Days) / form.getValues().currentPrice) * 100).toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">Stable</span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-          
-          <div className="mb-6">
-            <h4 className="font-medium text-[#1C1C28] mb-2">Analysis</h4>
-            <p className="text-[#2D2D3A] text-sm">{predictPriceTrendMutation.data.reasoning}</p>
-          </div>
-          
-          <div className="flex justify-end">
-            <button
-              className="px-4 py-2 bg-[#1C1C28] text-white rounded-lg hover:bg-[#2D2D3A] transition-all"
-              onClick={() => {
-                predictPriceTrendMutation.reset();
-                setFormData({
-                  title: "",
-                  category: "",
-                  currentPrice: "",
-                });
-              }}
-            >
-              Predict Another Item
-            </button>
-          </div>
-        </motion.div>
+
+            <Separator />
+
+            {/* Price direction and recommended action */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Price Direction</p>
+                <div className="flex items-center gap-2">
+                  {prediction.priceDirection === "up" ? (
+                    <>
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      <span className="font-medium">Rising</span>
+                    </>
+                  ) : prediction.priceDirection === "down" ? (
+                    <>
+                      <TrendingDown className="h-5 w-5 text-red-500" />
+                      <span className="font-medium">Falling</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      <span className="font-medium">Stable</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Recommended Action</p>
+                <Badge
+                  className={
+                    prediction.recommendedAction === "buy"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200"
+                      : prediction.recommendedAction === "sell"
+                      ? "bg-red-100 text-red-800 hover:bg-red-200"
+                      : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                  }
+                >
+                  {prediction.recommendedAction.toUpperCase()}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Seasonality and best time to sell */}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Seasonality Factor</p>
+                <p className="text-sm">{prediction.seasonalityFactor}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Best Season to Resell</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span>{prediction.bestResellSeason}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Confidence score */}
+            {renderConfidenceScore(prediction.confidenceScore)}
+
+            {/* Reasoning */}
+            <div className="rounded-lg bg-muted p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Gauge className="h-4 w-4" />
+                <p className="font-medium">Analysis Reasoning</p>
+              </div>
+              <p className="text-sm">{prediction.reasoning}</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
-    </motion.div>
+    </div>
   );
 }

@@ -1,357 +1,361 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { useAnalyzeDeal, DealAnalysis } from "@/hooks/use-ai";
-import { Loader2Icon, Sparkles, XCircle } from "lucide-react";
+import { useAnalyzeDeal, type DealAnalysisOutput } from "@/hooks/use-ai";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { 
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
+} from "@/components/ui/card";
+import { 
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage 
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock, Tag, 
+  BarChart, ShoppingBag, Truck 
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+
+// Form schema
+const formSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters"),
+  description: z.string().optional(),
+  originalPrice: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
+  currentPrice: z.string().min(1, "Current price is required").transform(val => parseFloat(val)),
+  condition: z.string().optional(),
+  source: z.string().optional(),
+});
 
 export default function DealAnalyzer() {
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    originalPrice: "",
-    currentPrice: "",
-    condition: "New",
-    source: "",
-  });
-  const [showForm, setShowForm] = useState(false);
-
+  const [analysisResult, setAnalysisResult] = useState<DealAnalysisOutput | null>(null);
   const analyzeDealMutation = useAnalyzeDeal();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  // Form setup
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      originalPrice: "",
+      currentPrice: "",
+      condition: "",
+      source: "",
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate input
-    if (!formData.title || !formData.currentPrice) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const result = await analyzeDealMutation.mutateAsync({
+        title: values.title,
+        description: values.description,
+        originalPrice: values.originalPrice,
+        currentPrice: values.currentPrice,
+        condition: values.condition,
+        source: values.source,
+      });
+      
+      setAnalysisResult(result);
       toast({
-        title: "Missing information",
-        description: "Please provide at least the item title and current price.",
+        title: "Analysis complete",
+        description: "Deal analysis completed successfully.",
+      });
+    } catch (error) {
+      console.error("Error analyzing deal:", error);
+      toast({
+        title: "Analysis failed",
+        description: "Failed to analyze the deal. Please try again.",
         variant: "destructive",
       });
-      return;
     }
+  }
 
-    // Run analysis
-    analyzeDealMutation.mutate(
-      {
-        title: formData.title,
-        description: formData.description,
-        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
-        currentPrice: parseFloat(formData.currentPrice),
-        condition: formData.condition,
-        source: formData.source,
-      },
-      {
-        onSuccess: (data) => {
-          toast({
-            title: "Analysis complete",
-            description: "Deal analysis has been completed successfully.",
-          });
-        },
-        onError: (error) => {
-          toast({
-            title: "Analysis failed",
-            description: "Could not analyze the deal. Please try again.",
-            variant: "destructive",
-          });
-        },
-      }
+  // Helper function for rendering the confidence score
+  const renderConfidenceScore = (score: number) => {
+    let color = "bg-red-500";
+    if (score >= 70) color = "bg-green-500";
+    else if (score >= 40) color = "bg-yellow-500";
+    
+    return (
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <span className="text-sm font-medium">Confidence Score</span>
+          <span className="text-sm font-medium">{score}%</span>
+        </div>
+        <Progress value={score} className={`h-2 ${color}`} />
+      </div>
     );
   };
 
-  const renderAnalysisResult = () => {
-    if (!analyzeDealMutation.data) return null;
-
-    const result = analyzeDealMutation.data;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-6 bg-white rounded-xl p-6 shadow-md"
-      >
-        <div className="flex justify-between mb-4">
-          <h3 className="text-lg font-bold text-[#1C1C28]">Analysis Results</h3>
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            result.matchScore >= 75 ? "bg-green-100 text-green-800" : 
-            result.matchScore >= 50 ? "bg-yellow-100 text-yellow-800" : 
-            "bg-red-100 text-red-800"
-          }`}>
-            {result.matchScore}% Match
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-sm text-[#2D2D3A] font-medium">Estimated Profit</p>
-            <p className="text-xl font-bold text-green-600">${result.estimatedProfit}</p>
-          </div>
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-sm text-[#2D2D3A] font-medium">Resell Range</p>
-            <p className="text-xl font-bold text-[#1C1C28]">${result.avgResellLow} - ${result.avgResellHigh}</p>
-          </div>
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-sm text-[#2D2D3A] font-medium">Estimated Sell Time</p>
-            <p className="text-xl font-bold text-[#1C1C28]">{result.sellTimeEstimate}</p>
-          </div>
-          <div className="bg-[#F5F5F5] rounded-lg p-3">
-            <p className="text-sm text-[#2D2D3A] font-medium">Market Demand</p>
-            <p className={`text-xl font-bold ${
-              result.demand === 'High' ? 'text-green-600' : 
-              result.demand === 'Medium' ? 'text-yellow-600' : 
-              'text-red-600'
-            }`}>
-              {result.demand}
-            </p>
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <h4 className="font-medium text-[#1C1C28] mb-2">Market Analysis</h4>
-          <p className="text-[#2D2D3A] text-sm">{result.analysis}</p>
-        </div>
-
-        <div>
-          <h4 className="font-medium text-[#1C1C28] mb-2">Selling Tips</h4>
-          <ul className="list-disc pl-5 text-sm text-[#2D2D3A] space-y-1">
-            {result.sellingTips.map((tip: string, index: number) => (
-              <li key={index}>{tip}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            className="px-4 py-2 bg-[#1C1C28] text-white rounded-lg hover:bg-[#2D2D3A] transition-all"
-            onClick={() => {
-              analyzeDealMutation.reset();
-              setFormData({
-                title: "",
-                description: "",
-                originalPrice: "",
-                currentPrice: "",
-                condition: "New",
-                source: "",
-              });
-            }}
-          >
-            Analyze Another Deal
-          </button>
-        </div>
-      </motion.div>
-    );
+  // Helper function to determine badge color based on demand
+  const getDemandColor = (demand: string) => {
+    switch (demand.toLowerCase()) {
+      case 'high': return 'bg-green-500 hover:bg-green-600';
+      case 'medium': return 'bg-yellow-500 hover:bg-yellow-600';
+      case 'low': return 'bg-red-500 hover:bg-red-600';
+      default: return 'bg-gray-500 hover:bg-gray-600';
+    }
   };
 
   return (
-    <motion.div
-      className="bg-white rounded-xl shadow-md p-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Sparkles className="h-6 w-6 text-[#FFB800] mr-2" />
-          <h2 className="text-lg font-display font-bold text-[#1C1C28]">AI Deal Analyzer</h2>
-        </div>
-        {!showForm && !analyzeDealMutation.data && (
-          <button
-            className="px-4 py-2 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all"
-            onClick={() => setShowForm(true)}
-          >
-            Analyze New Deal
-          </button>
-        )}
-        {showForm && !analyzeDealMutation.data && (
-          <button
-            className="text-[#2D2D3A] hover:text-[#1C1C28]"
-            onClick={() => setShowForm(false)}
-          >
-            <XCircle className="h-6 w-6" />
-          </button>
-        )}
-      </div>
-
-      {!showForm && !analyzeDealMutation.data && (
-        <div className="text-center py-10">
-          <p className="text-[#2D2D3A] mb-6">
-            Our AI can analyze potential deals to estimate profit, demand, and selling time.
-            <br />
-            Click "Analyze New Deal" to get started.
-          </p>
-          <div className="flex justify-center">
-            <button
-              className="px-6 py-3 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all"
-              onClick={() => setShowForm(true)}
-            >
-              Analyze New Deal
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showForm && !analyzeDealMutation.data && (
-        <motion.form
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          transition={{ duration: 0.3 }}
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Item Title*
-              </label>
-              <input
-                id="title"
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Deal Analysis Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart className="h-5 w-5" />
+            AI Deal Analyzer
+          </CardTitle>
+          <CardDescription>
+            Enter details about a potential deal to get AI-powered analysis
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
                 name="title"
-                type="text"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-                placeholder="e.g. iPhone 13 Pro Max 256GB"
-                required
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product Title*</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Apple iPhone 13 Pro Max 256GB" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <label htmlFor="source" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Source
-              </label>
-              <input
-                id="source"
-                name="source"
-                type="text"
-                value={formData.source}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-                placeholder="e.g. Facebook Marketplace, eBay"
+              
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Details about the product, condition, features, etc." 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-              placeholder="Briefly describe the item..."
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="originalPrice" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Original Price ($)
-              </label>
-              <input
-                id="originalPrice"
-                name="originalPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.originalPrice}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label htmlFor="currentPrice" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Current Price ($)*
-              </label>
-              <input
-                id="currentPrice"
-                name="currentPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.currentPrice}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
-                placeholder="0.00"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="condition" className="block text-sm font-medium text-[#2D2D3A] mb-1">
-                Condition
-              </label>
-              <select
-                id="condition"
-                name="condition"
-                value={formData.condition}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFB800]"
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="originalPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Original Price ($)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="99.99" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="currentPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Current Price ($)*</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="49.99" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="condition"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition</FormLabel>
+                      <FormControl>
+                        <Input placeholder="New, Used, Like New, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="source"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Source</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Facebook, eBay, Local store, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={analyzeDealMutation.isPending}
               >
-                <option value="New">New</option>
-                <option value="Like New">Like New</option>
-                <option value="Excellent">Excellent</option>
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-                <option value="Poor">Poor</option>
-              </select>
+                {analyzeDealMutation.isPending ? "Analyzing..." : "Analyze Deal"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* Analysis Results */}
+      {analysisResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Deal Analysis Results</CardTitle>
+            <CardDescription>
+              AI-powered analysis for {form.getValues().title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Main metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Estimated Value</p>
+                <p className="text-2xl font-bold">${analysisResult.estimatedValue.toFixed(2)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Estimated Profit</p>
+                <p className={`text-2xl font-bold ${analysisResult.estimatedProfit > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  ${analysisResult.estimatedProfit.toFixed(2)}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="pt-4 flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 border border-gray-300 text-[#2D2D3A] rounded-lg hover:bg-gray-100 transition-all"
+            <Separator />
+
+            {/* Resale prices */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Typical Resale Range</p>
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-lg font-medium">
+                  ${analysisResult.resellLow.toFixed(2)} - ${analysisResult.resellHigh.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Market metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Demand</p>
+                <Badge className={`${getDemandColor(analysisResult.demand)}`}>
+                  {analysisResult.demand}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Estimated Time to Sell</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>{analysisResult.sellTimeEstimate}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Market trend */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Market Trend</p>
+              <div className="flex items-center gap-2">
+                {analysisResult.marketTrend.toLowerCase().includes('up') ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : analysisResult.marketTrend.toLowerCase().includes('down') ? (
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                )}
+                <span>{analysisResult.marketTrend}</span>
+              </div>
+            </div>
+
+            {/* Category and tags */}
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Category</p>
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <span>{analysisResult.category}</span>
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {analysisResult.tags.map((tag, i) => (
+                    <Badge key={i} variant="outline">{tag}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Confidence score */}
+            {renderConfidenceScore(analysisResult.confidenceScore)}
+
+            {/* Risk assessment */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Risk Assessment</p>
+              <p className="text-sm">{analysisResult.riskAssessment}</p>
+            </div>
+
+            {/* Recommended platforms */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Recommended Selling Platforms</p>
+              <div className="flex flex-wrap gap-2">
+                {analysisResult.recommendedPlatforms.map((platform, i) => (
+                  <Badge key={i} variant="secondary">{platform}</Badge>
+                ))}
+              </div>
+            </div>
+            
+            {/* Summary */}
+            <div className="rounded-lg bg-muted p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4" />
+                <p className="font-medium">Summary</p>
+              </div>
+              <p className="text-sm">{analysisResult.summary}</p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={() => {
+                // Save the deal to the database
+                toast({
+                  title: "Deal saved",
+                  description: "This deal has been added to your tracked deals",
+                });
+              }}
+              className="flex items-center gap-2 w-full"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={analyzeDealMutation.isPending}
-              className="px-4 py-2 bg-[#FFB800] hover:bg-[#E6A600] text-[#1C1C28] font-medium rounded-lg transition-all flex items-center disabled:opacity-70"
-            >
-              {analyzeDealMutation.isPending && (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {analyzeDealMutation.isPending ? "Analyzing..." : "Analyze Deal"}
-            </button>
-          </div>
-        </motion.form>
+              <ShoppingBag className="h-4 w-4" />
+              Save Deal
+            </Button>
+          </CardFooter>
+        </Card>
       )}
-
-      {analyzeDealMutation.isPending && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2Icon className="h-10 w-10 text-[#FFB800] animate-spin mb-4" />
-          <p className="text-[#2D2D3A] text-center">
-            Analyzing deal with AI...
-            <br />
-            <span className="text-sm">This may take a few moments</span>
-          </p>
-        </div>
-      )}
-
-      {analyzeDealMutation.isError && (
-        <div className="text-center py-6 text-red-500">
-          <XCircle className="h-10 w-10 mx-auto mb-2" />
-          <p>Analysis failed. Please try again.</p>
-          <button
-            onClick={() => analyzeDealMutation.reset()}
-            className="mt-4 px-4 py-2 bg-[#1C1C28] text-white rounded-lg hover:bg-[#2D2D3A] transition-all"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {renderAnalysisResult()}
-    </motion.div>
+    </div>
   );
 }

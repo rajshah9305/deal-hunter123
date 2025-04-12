@@ -1,100 +1,131 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-// Define types for the AI responses
-export type DealAnalysis = {
-  matchScore: number;
-  estimatedProfit: number;
-  avgResellLow: number;
-  avgResellHigh: number;
-  sellTimeEstimate: string;
-  demand: string;
-  isHotDeal: boolean;
-  analysis: string;
-  sellingTips: string[];
-};
+// Deal Analysis
+export interface DealAnalysisInput {
+  title: string;
+  description?: string;
+  originalPrice?: number;
+  currentPrice: number;
+  condition?: string;
+  source?: string;
+}
 
-export type MarketInsightAI = {
+export interface DealAnalysisOutput {
+  estimatedValue: number;
+  estimatedProfit: number;
+  resellLow: number;
+  resellHigh: number;
+  demand: string;
+  marketTrend: string;
+  sellTimeEstimate: string;
+  recommendedPlatforms: string[];
+  competitorPrices?: {
+    platform: string;
+    price: number;
+  }[];
+  category: string;
+  tags: string[];
+  riskAssessment: string;
+  confidenceScore: number;
+  summary: string;
+}
+
+// Price Prediction
+export interface PricePredictionInput {
+  title: string;
+  category?: string;
+  currentPrice: number;
+  historicalPrices?: {
+    date: string;
+    price: number;
+    source?: string;
+  }[];
+}
+
+export interface PricePredictionOutput {
+  projectedPrice30Days: number;
+  projectedPrice90Days: number;
+  priceDirection: string;
+  seasonalityFactor: string;
+  confidenceScore: number;
+  recommendedAction: string;
+  reasoning: string;
+  bestResellSeason: string;
+}
+
+// Market Insights
+export interface MarketInsight {
   title: string;
   description: string;
-  changePercentage: number;
+  category: string;
+  changePercentage?: number;
   iconType: string;
   colorType: string;
-};
+  source?: string;
+  period: string;
+}
 
-export type PricePrediction = {
-  futurePrices: Array<{
-    daysFromNow: number;
-    predictedPrice: number;
-    trend: "up" | "down" | "stable";
-  }>;
-  overallTrend: "up" | "down" | "stable";
-  confidenceLevel: number;
-  reasoning: string;
-};
+// Listing Generation
+export interface ListingGenerationInput {
+  item: {
+    title: string;
+    description?: string;
+    condition?: string;
+    category?: string;
+    purchasePrice?: number;
+    estimatedValue?: number;
+    images?: string[];
+    tags?: string[];
+  };
+  platform: string;
+  template?: string;
+}
 
-/**
- * Hook for analyzing a deal using AI
- * @returns Mutation function and state for deal analysis
- */
+export interface ListingGenerationOutput {
+  title: string;
+  description: string;
+  suggestedPrice: number;
+  tags: string[];
+}
+
+// Custom hooks
 export function useAnalyzeDeal() {
-  return useMutation({
-    mutationFn: async (dealDetails: {
-      title: string;
-      description?: string;
-      originalPrice?: number;
-      currentPrice: number;
-      condition?: string;
-      source?: string;
-    }) => {
-      return apiRequest<DealAnalysis>("/api/ai/analyze-deal", {
-        method: "POST",
-        body: JSON.stringify(dealDetails),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+  return useMutation<DealAnalysisOutput, Error, DealAnalysisInput>({
+    mutationFn: async (dealData: DealAnalysisInput) => {
+      const response = await apiRequest("POST", "/api/ai/analyze-deal", dealData);
+      const data = await response.json();
+      return data;
     },
   });
 }
 
-/**
- * Hook for generating market insights using AI
- * @returns Mutation function and state for market insights
- */
-export function useGenerateMarketInsights() {
-  return useMutation({
-    mutationFn: async (categories?: string[]) => {
-      return apiRequest<MarketInsightAI[]>("/api/ai/market-insights", {
-        method: "POST",
-        body: JSON.stringify({ categories }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+export function usePricePrediction() {
+  return useMutation<PricePredictionOutput, Error, PricePredictionInput>({
+    mutationFn: async (predictionData: PricePredictionInput) => {
+      const response = await apiRequest("POST", "/api/ai/price-prediction", predictionData);
+      const data = await response.json();
+      return data;
     },
   });
 }
 
-/**
- * Hook for predicting price trends using AI
- * @returns Mutation function and state for price prediction
- */
-export function usePredictPriceTrend() {
-  return useMutation({
-    mutationFn: async (productDetails: {
-      title: string;
-      category?: string;
-      currentPrice: number;
-      historicalPrices?: { date: string; price: number }[];
-    }) => {
-      return apiRequest<PricePrediction>("/api/ai/price-prediction", {
-        method: "POST",
-        body: JSON.stringify(productDetails),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+export function useMarketInsights() {
+  return useMutation<MarketInsight[], Error, string[]>({
+    mutationFn: async (categories: string[] = []) => {
+      const response = await apiRequest("POST", "/api/ai/market-insights", { categories });
+      const data = await response.json();
+      return data;
+    },
+  });
+}
+
+export function useGenerateListing() {
+  return useMutation<ListingGenerationOutput, Error, ListingGenerationInput>({
+    mutationFn: async (input: ListingGenerationInput) => {
+      const response = await apiRequest("POST", "/api/ai/generate-listing", input);
+      const data = await response.json();
+      return data;
     },
   });
 }
