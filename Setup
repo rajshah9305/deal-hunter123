@@ -1,0 +1,51 @@
+
+DealFlip Application Setup Steps
+===============================
+
+1. Initial Setup
+---------------
+- The application is a React + Express stack using TypeScript
+- Frontend uses Tailwind CSS for styling
+- Backend runs on port 5000
+
+2. Install Dependencies
+----------------------
+Run this command to install all required packages:
+npm install
+
+3. Running the Application
+-------------------------
+Click the "Run" button at the top of your Replit workspace
+OR
+Run the command: npm run dev
+
+This will:
+- Start the Express server on port 5000
+- Launch the React development server
+- Enable hot module reloading for development
+
+4. Accessing the Application
+---------------------------
+Once running, the application will be available through:
+- Replit's webview (automatically opens)
+- Your repl's URL: https://[repl-name].[username].repl.co
+
+5. Available Pages
+-----------------
+The application includes these main routes:
+- /dashboard - Main dashboard with profit tracking
+- /deal-scout - Find potential deals
+- /calculator - Calculate potential profits
+- /listing - Manage listings
+- /inventory - Track inventory
+
+6. Development Notes
+-------------------
+- Backend API endpoints are prefixed with /api
+- Frontend uses React Query for data fetching
+- UI components use shadcn/ui library
+- Database schema includes tables for: users, deals, inventory, and activities
+
+7. Stopping the Application
+--------------------------
+Click the "Stop" button in Replit (replaces the Run button while running)
