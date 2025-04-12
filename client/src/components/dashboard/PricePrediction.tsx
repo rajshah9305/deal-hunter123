@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { usePredictPriceTrend } from "@/hooks/use-ai";
+import { usePredictPriceTrend, PricePrediction as PricePredictionType } from "@/hooks/use-ai";
 import { Loader2Icon, XCircle, Sparkles, TrendingUpIcon, TrendingDownIcon, MinusIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -15,16 +15,7 @@ import {
   TooltipProps
 } from "recharts";
 
-type PricePrediction = {
-  futurePrices: {
-    daysFromNow: number;
-    predictedPrice: number;
-    trend: "up" | "down" | "stable";
-  }[];
-  overallTrend: "up" | "down" | "stable";
-  confidenceLevel: number;
-  reasoning: string;
-};
+// Using PricePredictionType imported from use-ai.ts
 
 export default function PricePrediction() {
   const { toast } = useToast();
@@ -86,7 +77,7 @@ export default function PricePrediction() {
     );
   };
 
-  const formatChartData = (prediction: PricePrediction) => {
+  const formatChartData = (prediction: PricePredictionType) => {
     if (!prediction) return [];
 
     // Start with the historical data
@@ -119,7 +110,7 @@ export default function PricePrediction() {
     ];
 
     // Add the predictions
-    const predictionData = prediction.futurePrices.map(p => ({
+    const predictionData = prediction.futurePrices.map((p: { daysFromNow: number; predictedPrice: number; trend: "up" | "down" | "stable" }) => ({
       day: p.daysFromNow,
       date: new Date(today.getTime() + p.daysFromNow * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       price: p.predictedPrice,

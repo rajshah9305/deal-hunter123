@@ -47,13 +47,13 @@ export function useAnalyzeDeal() {
       condition?: string;
       source?: string;
     }) => {
-      return apiRequest("/api/ai/analyze-deal", {
+      return apiRequest<DealAnalysis>("/api/ai/analyze-deal", {
         method: "POST",
         body: JSON.stringify(dealDetails),
         headers: {
           "Content-Type": "application/json",
         },
-      }) as Promise<DealAnalysis>;
+      });
     },
   });
 }
@@ -65,13 +65,13 @@ export function useAnalyzeDeal() {
 export function useGenerateMarketInsights() {
   return useMutation({
     mutationFn: async (categories?: string[]) => {
-      return apiRequest("/api/ai/market-insights", {
+      return apiRequest<MarketInsightAI[]>("/api/ai/market-insights", {
         method: "POST",
         body: JSON.stringify({ categories }),
         headers: {
           "Content-Type": "application/json",
         },
-      }) as Promise<MarketInsightAI[]>;
+      });
     },
   });
 }
@@ -88,13 +88,13 @@ export function usePredictPriceTrend() {
       currentPrice: number;
       historicalPrices?: { date: string; price: number }[];
     }) => {
-      return apiRequest("/api/ai/price-prediction", {
+      return apiRequest<PricePrediction>("/api/ai/price-prediction", {
         method: "POST",
         body: JSON.stringify(productDetails),
         headers: {
           "Content-Type": "application/json",
         },
-      }) as Promise<PricePrediction>;
+      });
     },
   });
 }
