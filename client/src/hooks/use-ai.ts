@@ -1,6 +1,38 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
+// Define types for the AI responses
+export type DealAnalysis = {
+  matchScore: number;
+  estimatedProfit: number;
+  avgResellLow: number;
+  avgResellHigh: number;
+  sellTimeEstimate: string;
+  demand: string;
+  isHotDeal: boolean;
+  analysis: string;
+  sellingTips: string[];
+};
+
+export type MarketInsightAI = {
+  title: string;
+  description: string;
+  changePercentage: number;
+  iconType: string;
+  colorType: string;
+};
+
+export type PricePrediction = {
+  futurePrices: Array<{
+    daysFromNow: number;
+    predictedPrice: number;
+    trend: "up" | "down" | "stable";
+  }>;
+  overallTrend: "up" | "down" | "stable";
+  confidenceLevel: number;
+  reasoning: string;
+};
+
 /**
  * Hook for analyzing a deal using AI
  * @returns Mutation function and state for deal analysis
@@ -15,13 +47,13 @@ export function useAnalyzeDeal() {
       condition?: string;
       source?: string;
     }) => {
-      return apiRequest<any>("/api/ai/analyze-deal", {
+      return apiRequest("/api/ai/analyze-deal", {
         method: "POST",
         body: JSON.stringify(dealDetails),
         headers: {
           "Content-Type": "application/json",
         },
-      });
+      }) as Promise<DealAnalysis>;
     },
   });
 }
@@ -33,13 +65,13 @@ export function useAnalyzeDeal() {
 export function useGenerateMarketInsights() {
   return useMutation({
     mutationFn: async (categories?: string[]) => {
-      return apiRequest<any>("/api/ai/market-insights", {
+      return apiRequest("/api/ai/market-insights", {
         method: "POST",
         body: JSON.stringify({ categories }),
         headers: {
           "Content-Type": "application/json",
         },
-      });
+      }) as Promise<MarketInsightAI[]>;
     },
   });
 }
@@ -56,13 +88,13 @@ export function usePredictPriceTrend() {
       currentPrice: number;
       historicalPrices?: { date: string; price: number }[];
     }) => {
-      return apiRequest<any>("/api/ai/price-prediction", {
+      return apiRequest("/api/ai/price-prediction", {
         method: "POST",
         body: JSON.stringify(productDetails),
         headers: {
           "Content-Type": "application/json",
         },
-      });
+      }) as Promise<PricePrediction>;
     },
   });
 }
