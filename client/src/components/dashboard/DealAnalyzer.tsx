@@ -34,8 +34,8 @@ const formSchema = z.object({
 
 export default function DealAnalyzer() {
   const { toast } = useToast();
-  const [analysisResult, setAnalysisResult] = useState<DealAnalysisOutput | null>(null);
-  const analyzeDealMutation = useAnalyzeDeal();
+  const [analysisResult, setAnalysisResult] = useState<DealAnalyzerOutput | null>(null);
+  const analyzeDealMutation = useDealAnalyzer();
 
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
