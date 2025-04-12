@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAnalyzeDeal, type DealAnalysisOutput } from "@/hooks/use-ai";
+import { useDealAnalyzer, type DealAnalyzerOutput } from "@/hooks/use-ai";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertDealSchema, insertInventorySchema, insertMarketInsightSchema, insertStatSchema, insertUserSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { analyzeDeal, generateMarketInsights, predictPriceTrend } from "./services/openai";
+import { analyzeDeal, generateMarketInsights, predictPriceTrend, generateListing } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
@@ -253,6 +253,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error predicting price trends with AI:", error);
       return res.status(500).json({ 
         message: "Error predicting price trends with AI", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // AI-powered Listing Generator
+  apiRouter.post("/ai/generate-listing", async (req: Request, res: Response) => {
+    try {
+      const { item, platform, template } = req.body;
+      
+      if (!item || !item.title || !platform) {
+        return res.status(400).json({ message: "Item title and platform are required" });
+      }
+
+      const listing = await generateListing(item, platform, template);
+
+      return res.json(listing);
+    } catch (error) {
+      console.error("Error generating listing with AI:", error);
+      return res.status(500).json({ 
+        message: "Error generating listing with AI", 
         details: error instanceof Error ? error.message : "Unknown error" 
       });
     }

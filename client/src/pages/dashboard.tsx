@@ -3,9 +3,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DealAnalyzer from "@/components/dashboard/DealAnalyzer";
 import AIMarketInsights from "@/components/dashboard/AIMarketInsights";
 import PricePrediction from "@/components/dashboard/PricePrediction";
+import InventoryManagement from "@/components/dashboard/InventoryManagement";
+import NotificationCenter from "@/components/dashboard/NotificationCenter";
+import CompetitorPriceTracker from "@/components/dashboard/CompetitorPriceTracker";
+import ListingGenerator from "@/components/dashboard/ListingGenerator";
 import { 
   BarChart, LineChart, TrendingUp, Inbox, ShoppingBag, 
-  Settings, Bell, Search, ChevronDown, Menu, Star, Clock
+  Settings, Bell, Search, ChevronDown, Menu, Star, Clock,
+  ArrowUpDown, FileEdit, BellRing, Activity, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +22,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("analyzer");
+  const unreadNotifications = 3; // This would come from an API call in a real app
+  
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "analyzer":
+        return <DealAnalyzer />;
+      case "insights":
+        return <AIMarketInsights />;
+      case "prediction":
+        return <PricePrediction />;
+      case "inventory":
+        return <InventoryManagement />;
+      case "notifications":
+        return <NotificationCenter />;
+      case "competitor":
+        return <CompetitorPriceTracker />;
+      case "listing":
+        return <ListingGenerator />;
+      default:
+        return <DealAnalyzer />;
+    }
+  };
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -43,12 +71,27 @@ export default function DashboardPage() {
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   My Deals
                 </Button>
-                <Button variant="ghost" className="justify-start">
+                <Button 
+                  variant="ghost" 
+                  className="justify-start"
+                  onClick={() => setActiveTab("inventory")}
+                >
                   <Inbox className="mr-2 h-4 w-4" />
                   Inventory
                 </Button>
+                <Button 
+                  variant="ghost" 
+                  className="justify-start"
+                  onClick={() => setActiveTab("notifications")}
+                >
+                  <BellRing className="mr-2 h-4 w-4" />
+                  Notifications
+                  {unreadNotifications > 0 && (
+                    <Badge className="ml-auto" variant="secondary">{unreadNotifications}</Badge>
+                  )}
+                </Button>
                 <Button variant="ghost" className="justify-start">
-                  <TrendingUp className="mr-2 h-4 w-4" />
+                  <Activity className="mr-2 h-4 w-4" />
                   Stats
                 </Button>
                 <Button variant="ghost" className="justify-start">
@@ -71,8 +114,18 @@ export default function DashboardPage() {
                 className="w-[200px] lg:w-[300px] pl-8"
               />
             </form>
-            <Button variant="outline" size="icon">
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="relative"
+              onClick={() => setActiveTab("notifications")}
+            >
               <Bell className="h-4 w-4" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] text-white grid place-items-center">
+                  {unreadNotifications}
+                </span>
+              )}
               <span className="sr-only">Notifications</span>
             </Button>
             <DropdownMenu>
@@ -111,12 +164,29 @@ export default function DashboardPage() {
               <ShoppingBag className="mr-2 h-4 w-4" />
               My Deals
             </Button>
-            <Button variant="ghost" className="justify-start">
+            <Button 
+              variant={activeTab === "inventory" ? "default" : "ghost"} 
+              className="justify-start"
+              onClick={() => setActiveTab("inventory")}
+            >
               <Inbox className="mr-2 h-4 w-4" />
               Inventory
             </Button>
+            <Button 
+              variant={activeTab === "notifications" ? "default" : "ghost"} 
+              className="justify-between"
+              onClick={() => setActiveTab("notifications")}
+            >
+              <div className="flex items-center">
+                <BellRing className="mr-2 h-4 w-4" />
+                Notifications
+              </div>
+              {unreadNotifications > 0 && (
+                <Badge variant="secondary">{unreadNotifications}</Badge>
+              )}
+            </Button>
             <Button variant="ghost" className="justify-start">
-              <TrendingUp className="mr-2 h-4 w-4" />
+              <Activity className="mr-2 h-4 w-4" />
               Stats
             </Button>
             
@@ -148,6 +218,22 @@ export default function DashboardPage() {
               <TrendingUp className="mr-2 h-4 w-4" />
               Price Prediction
             </Button>
+            <Button 
+              variant={activeTab === "competitor" ? "default" : "ghost"} 
+              className="justify-start"
+              onClick={() => setActiveTab("competitor")}
+            >
+              <ArrowUpDown className="mr-2 h-4 w-4" />
+              Competitor Tracker
+            </Button>
+            <Button 
+              variant={activeTab === "listing" ? "default" : "ghost"} 
+              className="justify-start"
+              onClick={() => setActiveTab("listing")}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Listing Generator
+            </Button>
             
             <Separator className="my-2" />
             <Button variant="ghost" className="justify-start">
@@ -160,51 +246,62 @@ export default function DashboardPage() {
         {/* Main content area */}
         <div className="flex-1 overflow-auto">
           <main className="container mx-auto p-4 md:p-6 lg:p-8">
-            {/* Dashboard Header */}
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-semibold">AI Deal Tools</h1>
-                <p className="text-muted-foreground">
-                  Use AI to analyze deals, predict prices, and track market insights
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <Button variant="default" className="shadow-sm">
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  My Deals
-                </Button>
-              </div>
-            </div>
-
-            {/* Dashboard Tabs (Mobile) */}
+            {/* Mobile Tabs */}
             <div className="block md:hidden mb-6">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="analyzer">Analyzer</TabsTrigger>
-                  <TabsTrigger value="insights">Insights</TabsTrigger>
-                  <TabsTrigger value="prediction">Prediction</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="overflow-x-auto pb-2">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="inline-flex w-auto h-9 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground">
+                    <TabsTrigger 
+                      value="analyzer" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Analyzer
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="insights" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Insights
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="prediction" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Prediction
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="inventory" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Inventory
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="notifications" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Notifications
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="competitor" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Competitor
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="listing" 
+                      className="rounded-md px-3 py-1 text-xs data-[state=active]:bg-background data-[state=active]:text-foreground"
+                    >
+                      Listing
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
 
             {/* Dashboard Content */}
-            {activeTab === "analyzer" && (
-              <div className="space-y-8">
-                <DealAnalyzer />
-              </div>
-            )}
-
-            {activeTab === "insights" && (
-              <div className="space-y-8">
-                <AIMarketInsights />
-              </div>
-            )}
-
-            {activeTab === "prediction" && (
-              <div className="space-y-8">
-                <PricePrediction />
-              </div>
-            )}
+            <div className="space-y-8">
+              {renderTabContent()}
+            </div>
           </main>
         </div>
       </div>
