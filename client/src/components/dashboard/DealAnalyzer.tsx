@@ -26,8 +26,8 @@ import { Progress } from "@/components/ui/progress";
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
-  originalPrice: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
-  currentPrice: z.string().min(1, "Current price is required").transform(val => parseFloat(val)),
+  originalPrice: z.coerce.number().optional(),
+  currentPrice: z.coerce.number().min(0.01, "Current price is required"),
   condition: z.string().optional(),
   source: z.string().optional(),
 });
@@ -43,8 +43,8 @@ export default function DealAnalyzer() {
     defaultValues: {
       title: "",
       description: "",
-      originalPrice: "",
-      currentPrice: "",
+      originalPrice: undefined,
+      currentPrice: undefined,
       condition: "",
       source: "",
     },
@@ -154,11 +154,18 @@ export default function DealAnalyzer() {
                 <FormField
                   control={form.control}
                   name="originalPrice"
-                  render={({ field }) => (
+                  render={({ field: { onChange, ...field } }) => (
                     <FormItem>
                       <FormLabel>Original Price ($)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="99.99" {...field} />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="99.99" 
+                          onChange={(e) => onChange(e.target.valueAsNumber)} 
+                          {...field} 
+                          value={field.value || ''}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

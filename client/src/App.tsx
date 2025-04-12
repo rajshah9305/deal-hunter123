@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
-import Dashboard from "@/pages/Dashboard";
+import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
